@@ -34,7 +34,7 @@ using namespace mlir;
 
 namespace {
 
-enum class DmaArch { A2A3, A5 };
+enum class DmaArch { A2A3, A5, A6 };
 
 constexpr uint64_t kMxScaleAddressShift = 4;
 
@@ -43,7 +43,10 @@ static DmaArch getDmaArch(ModuleOp mod) {
     return DmaArch::A2A3;
   }
   auto arch = mod->getAttrOfType<StringAttr>("pto.target_arch");
-  if (arch && arch.getValue() == "a5") {
+  if (arch && (arch.getValue() == "a5" || arch.getValue() == "a6")) {
+    // A6 shares A5's DMA arch interface — the only differences
+    // (pre_allocation, non_eod_ctrl, rsw_ctrl) are resolved by bisheng
+    // + CANN headers at CCE compile time based on --cce-aicore-arch.
     return DmaArch::A5;
   }
   return DmaArch::A2A3;

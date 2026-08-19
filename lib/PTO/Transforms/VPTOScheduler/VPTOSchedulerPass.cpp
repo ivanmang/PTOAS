@@ -260,9 +260,9 @@ struct VPTOSchedulerPass
           "this module nor an enclosing module defines 'pto.target_arch'");
       return signalPassFailure();
     }
-    if (target.getValue() != "a5") {
+    if (target.getValue() != "a5" && target.getValue() != "a6") {
       getOperation().emitError("VPTO scheduler requires target architecture "
-                               "'a5', but module targets '")
+                               "'a5' or 'a6', but module targets '")
           << target.getValue() << "'";
       return signalPassFailure();
     }
