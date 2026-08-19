@@ -97,6 +97,7 @@ static std::optional<pto::AddressSpace> getPTOMemorySpaceEnum(Type ty);
 enum class VerifierTargetArch {
   A2A3,
   A5,
+  A6,
 };
 static VerifierTargetArch getVerifierTargetArch(Operation *op);
 static std::optional<StringRef> getVerifierArchName(Operation *op);
@@ -356,12 +357,32 @@ static bool isA5DeviceSpec(StringRef spec) {
   return spec.starts_with("Ascend950") || spec.starts_with("Ascend910_95");
 }
 
+static bool isA6DeviceSpec(StringRef spec) {
+  return spec.starts_with("dav_9201") || spec.starts_with("dav-920");
+}
+
+static bool isA6ModuleTarget(ModuleOp module) {
+  if (!module) {
+    return false;
+  }
+  if (auto arch = module->getAttrOfType<StringAttr>(kPTOTargetArchAttrName)) {
+    if (arch.getValue().equals_insensitive("a6")) {
+      return true;
+    }
+  }
+  if (auto spec = module->getAttrOfType<StringAttr>("pto.device-spec")) {
+    return isA6DeviceSpec(spec.getValue());
+  }
+  return false;
+}
+
 static bool isA5ModuleTarget(ModuleOp module) {
   if (!module) {
     return false;
   }
   if (auto arch = module->getAttrOfType<StringAttr>(kPTOTargetArchAttrName)) {
-    if (arch.getValue().equals_insensitive("a5")) {
+    if (arch.getValue().equals_insensitive("a5") ||
+        arch.getValue().equals_insensitive("a6")) {
       return true;
     }
   }
@@ -375,10 +396,15 @@ PTOArch mlir::pto::getTargetArch(ModuleOp module) {
   if (isA5ModuleTarget(module)) {
     return PTOArch::A5;
   }
+  if (isA6ModuleTarget(module)) {
+    return PTOArch::A6;
+  }
 
   switch (getPTOParserTargetArch(module ? module.getContext() : nullptr)) {
   case PTOParserTargetArch::A5:
     return PTOArch::A5;
+  case PTOParserTargetArch::A6:
+    return PTOArch::A6;
   case PTOParserTargetArch::A3:
   case PTOParserTargetArch::Unspecified:
     break;
@@ -396,6 +422,8 @@ PTOArch mlir::pto::getTargetArch(Operation *op) {
   switch (getPTOParserTargetArch(op->getContext())) {
   case PTOParserTargetArch::A5:
     return PTOArch::A5;
+  case PTOParserTargetArch::A6:
+    return PTOArch::A6;
   case PTOParserTargetArch::A3:
   case PTOParserTargetArch::Unspecified:
     break;
@@ -411,12 +439,20 @@ bool mlir::pto::isTargetArchA5(ModuleOp module) {
   return getTargetArch(module) == PTOArch::A5;
 }
 
+bool mlir::pto::isTargetArchA6(ModuleOp module) {
+  return getTargetArch(module) == PTOArch::A6;
+}
+
 bool mlir::pto::isTargetArchA3(Operation *op) {
   return getTargetArch(op) == PTOArch::A3;
 }
 
 bool mlir::pto::isTargetArchA5(Operation *op) {
   return getTargetArch(op) == PTOArch::A5;
+}
+
+bool mlir::pto::isTargetArchA6(Operation *op) {
+  return getTargetArch(op) == PTOArch::A6;
 }
 
 constexpr int64_t kA5VectorLengthBytes = 256;
@@ -620,15 +656,23 @@ static VerifierTargetArch getVerifierTargetArch(Operation *op) {
   if (isA5ModuleTarget(module)) {
     return VerifierTargetArch::A5;
   }
+  if (isA6ModuleTarget(module)) {
+    return VerifierTargetArch::A6;
+  }
 
   if (auto archName = getVerifierArchName(op)) {
-    return archName->equals_insensitive("a5") ? VerifierTargetArch::A5
-                            : VerifierTargetArch::A2A3;
+    if (archName->equals_insensitive("a5"))
+      return VerifierTargetArch::A5;
+    if (archName->equals_insensitive("a6"))
+      return VerifierTargetArch::A6;
+    return VerifierTargetArch::A2A3;
   }
 
   switch (getPTOParserTargetArch(op ? op->getContext() : nullptr)) {
   case PTOParserTargetArch::A5:
     return VerifierTargetArch::A5;
+  case PTOParserTargetArch::A6:
+    return VerifierTargetArch::A6;
   case PTOParserTargetArch::A3:
   case PTOParserTargetArch::Unspecified:
     return VerifierTargetArch::A2A3;

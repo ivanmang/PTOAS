@@ -185,7 +185,8 @@ struct PTOA5NormalizeTMovPass
     : public mlir::pto::impl::PTOA5NormalizeTMovBase<PTOA5NormalizeTMovPass> {
   void runOnOperation() override {
     func::FuncOp func = getOperation();
-    if (!isTargetArchA5(func.getOperation())) {
+    if (!isTargetArchA5(func.getOperation()) &&
+        !isTargetArchA6(func.getOperation())) {
       return;
     }
 
