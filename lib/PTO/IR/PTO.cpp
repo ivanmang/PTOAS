@@ -97,6 +97,7 @@ static std::optional<pto::AddressSpace> getPTOMemorySpaceEnum(Type ty);
 enum class VerifierTargetArch {
   A2A3,
   A5,
+  A6,
 };
 static VerifierTargetArch getVerifierTargetArch(Operation *op);
 static std::optional<StringRef> getVerifierArchName(Operation *op);
@@ -356,12 +357,32 @@ static bool isA5DeviceSpec(StringRef spec) {
   return spec.starts_with("Ascend950") || spec.starts_with("Ascend910_95");
 }
 
+static bool isA6DeviceSpec(StringRef spec) {
+  return spec.starts_with("dav_9201") || spec.starts_with("dav-920");
+}
+
+static bool isA6ModuleTarget(ModuleOp module) {
+  if (!module) {
+    return false;
+  }
+  if (auto arch = module->getAttrOfType<StringAttr>(kPTOTargetArchAttrName)) {
+    if (arch.getValue().equals_insensitive("a6")) {
+      return true;
+    }
+  }
+  if (auto spec = module->getAttrOfType<StringAttr>("pto.device-spec")) {
+    return isA6DeviceSpec(spec.getValue());
+  }
+  return false;
+}
+
 static bool isA5ModuleTarget(ModuleOp module) {
   if (!module) {
     return false;
   }
   if (auto arch = module->getAttrOfType<StringAttr>(kPTOTargetArchAttrName)) {
-    if (arch.getValue().equals_insensitive("a5")) {
+    if (arch.getValue().equals_insensitive("a5") ||
+        arch.getValue().equals_insensitive("a6")) {
       return true;
     }
   }
@@ -375,10 +396,15 @@ PTOArch mlir::pto::getTargetArch(ModuleOp module) {
   if (isA5ModuleTarget(module)) {
     return PTOArch::A5;
   }
+  if (isA6ModuleTarget(module)) {
+    return PTOArch::A6;
+  }
 
   switch (getPTOParserTargetArch(module ? module.getContext() : nullptr)) {
   case PTOParserTargetArch::A5:
     return PTOArch::A5;
+  case PTOParserTargetArch::A6:
+    return PTOArch::A6;
   case PTOParserTargetArch::A3:
   case PTOParserTargetArch::Unspecified:
     break;
@@ -396,6 +422,8 @@ PTOArch mlir::pto::getTargetArch(Operation *op) {
   switch (getPTOParserTargetArch(op->getContext())) {
   case PTOParserTargetArch::A5:
     return PTOArch::A5;
+  case PTOParserTargetArch::A6:
+    return PTOArch::A6;
   case PTOParserTargetArch::A3:
   case PTOParserTargetArch::Unspecified:
     break;
@@ -411,12 +439,20 @@ bool mlir::pto::isTargetArchA5(ModuleOp module) {
   return getTargetArch(module) == PTOArch::A5;
 }
 
+bool mlir::pto::isTargetArchA6(ModuleOp module) {
+  return getTargetArch(module) == PTOArch::A6;
+}
+
 bool mlir::pto::isTargetArchA3(Operation *op) {
   return getTargetArch(op) == PTOArch::A3;
 }
 
 bool mlir::pto::isTargetArchA5(Operation *op) {
   return getTargetArch(op) == PTOArch::A5;
+}
+
+bool mlir::pto::isTargetArchA6(Operation *op) {
+  return getTargetArch(op) == PTOArch::A6;
 }
 
 constexpr int64_t kA5VectorLengthBytes = 256;
@@ -620,15 +656,23 @@ static VerifierTargetArch getVerifierTargetArch(Operation *op) {
   if (isA5ModuleTarget(module)) {
     return VerifierTargetArch::A5;
   }
+  if (isA6ModuleTarget(module)) {
+    return VerifierTargetArch::A6;
+  }
 
   if (auto archName = getVerifierArchName(op)) {
-    return archName->equals_insensitive("a5") ? VerifierTargetArch::A5
-                            : VerifierTargetArch::A2A3;
+    if (archName->equals_insensitive("a5"))
+      return VerifierTargetArch::A5;
+    if (archName->equals_insensitive("a6"))
+      return VerifierTargetArch::A6;
+    return VerifierTargetArch::A2A3;
   }
 
   switch (getPTOParserTargetArch(op ? op->getContext() : nullptr)) {
   case PTOParserTargetArch::A5:
     return VerifierTargetArch::A5;
+  case PTOParserTargetArch::A6:
+    return VerifierTargetArch::A6;
   case PTOParserTargetArch::A3:
   case PTOParserTargetArch::Unspecified:
     return VerifierTargetArch::A2A3;
@@ -664,6 +708,8 @@ static LogicalResult dispatchVerifierByArch(Operation *op, FnA2A3 &&verifyA2A3,
   case VerifierTargetArch::A2A3:
     return verifyA2A3();
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
+    // A6 shares A5 tile/vector verification semantics (see PTOArch A6).
     return verifyA5();
   }
   return failure();
@@ -3981,6 +4027,7 @@ LogicalResult TPrefetchOp::verify() {
   case VerifierTargetArch::A2A3:
     return verifyA2A3();
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
     return verifyA5();
   }
   return failure();
@@ -5750,6 +5797,7 @@ static LogicalResult verifyVecTileCommon(Operation *op, Type ty, StringRef name)
   case VerifierTargetArch::A2A3:
     return verifyVecTileCommonA2A3(op, ty, name);
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
     return verifyVecTileCommonA5(op, ty, name);
   }
   return failure();
@@ -5795,6 +5843,7 @@ static LogicalResult verifyAccTileCommon(Operation *op, Type ty, StringRef name)
   case VerifierTargetArch::A2A3:
     return verifyAccTileCommonA2A3(op, ty, name);
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
     return verifyAccTileCommonA5(op, ty, name);
   }
   return failure();
@@ -5886,6 +5935,7 @@ static LogicalResult verifyMatTileOperands(Operation *op, Type lhsTy, Type rhsTy
     return verifyMatTileOperandsA2A3(op, lhsTy, rhsTy, dstTy,
                                      allowLowPrecision);
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
     return verifyMatTileOperandsA5(op, lhsTy, rhsTy, dstTy,
                                    allowLowPrecision);
   }
@@ -5949,6 +5999,7 @@ static LogicalResult verifyGemvTileOperands(Operation *op, Type lhsTy, Type rhsT
   case VerifierTargetArch::A2A3:
     return verifyGemvTileOperandsA2A3(op, lhsTy, rhsTy, dstTy);
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
     return verifyGemvTileOperandsA5(op, lhsTy, rhsTy, dstTy);
   }
   return failure();
@@ -6272,6 +6323,7 @@ static LogicalResult verifyMatBiasTile(Operation *op, Type biasTy, Type dstTy,
   case VerifierTargetArch::A2A3:
     return verifyMatBiasTileA2A3(op, biasTy, dstTy, requireFloatBias);
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
     return verifyMatBiasTileA5(op, biasTy, dstTy, requireFloatBias);
   }
   return failure();
