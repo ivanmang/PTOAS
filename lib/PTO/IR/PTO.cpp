@@ -708,6 +708,8 @@ static LogicalResult dispatchVerifierByArch(Operation *op, FnA2A3 &&verifyA2A3,
   case VerifierTargetArch::A2A3:
     return verifyA2A3();
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
+    // A6 shares A5 tile/vector verification semantics (see PTOArch A6).
     return verifyA5();
   }
   return failure();
@@ -4025,6 +4027,7 @@ LogicalResult TPrefetchOp::verify() {
   case VerifierTargetArch::A2A3:
     return verifyA2A3();
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
     return verifyA5();
   }
   return failure();
@@ -5794,6 +5797,7 @@ static LogicalResult verifyVecTileCommon(Operation *op, Type ty, StringRef name)
   case VerifierTargetArch::A2A3:
     return verifyVecTileCommonA2A3(op, ty, name);
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
     return verifyVecTileCommonA5(op, ty, name);
   }
   return failure();
@@ -5839,6 +5843,7 @@ static LogicalResult verifyAccTileCommon(Operation *op, Type ty, StringRef name)
   case VerifierTargetArch::A2A3:
     return verifyAccTileCommonA2A3(op, ty, name);
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
     return verifyAccTileCommonA5(op, ty, name);
   }
   return failure();
@@ -5930,6 +5935,7 @@ static LogicalResult verifyMatTileOperands(Operation *op, Type lhsTy, Type rhsTy
     return verifyMatTileOperandsA2A3(op, lhsTy, rhsTy, dstTy,
                                      allowLowPrecision);
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
     return verifyMatTileOperandsA5(op, lhsTy, rhsTy, dstTy,
                                    allowLowPrecision);
   }
@@ -5993,6 +5999,7 @@ static LogicalResult verifyGemvTileOperands(Operation *op, Type lhsTy, Type rhsT
   case VerifierTargetArch::A2A3:
     return verifyGemvTileOperandsA2A3(op, lhsTy, rhsTy, dstTy);
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
     return verifyGemvTileOperandsA5(op, lhsTy, rhsTy, dstTy);
   }
   return failure();
@@ -6316,6 +6323,7 @@ static LogicalResult verifyMatBiasTile(Operation *op, Type biasTy, Type dstTy,
   case VerifierTargetArch::A2A3:
     return verifyMatBiasTileA2A3(op, biasTy, dstTy, requireFloatBias);
   case VerifierTargetArch::A5:
+  case VerifierTargetArch::A6:
     return verifyMatBiasTileA5(op, biasTy, dstTy, requireFloatBias);
   }
   return failure();
