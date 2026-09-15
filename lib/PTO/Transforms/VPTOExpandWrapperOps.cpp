@@ -50,7 +50,8 @@ static DmaArch getDmaArch(ModuleOp mod) {
     return DmaArch::A2A3;
   }
   auto arch = mod->getAttrOfType<StringAttr>("pto.target_arch");
-  if (arch && arch.getValue() == "a5") {
+  if (arch &&
+      (arch.getValue() == "a5" || arch.getValue() == "a6")) {
     return DmaArch::A5;
   }
   return DmaArch::A2A3;

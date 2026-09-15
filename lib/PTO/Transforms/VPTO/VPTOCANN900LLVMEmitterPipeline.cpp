@@ -14,6 +14,10 @@ static bool isC220Target(StringRef march) {
   return march == "dav-c220-vec" || march == "dav-c220-cube";
 }
 
+static bool isA6Target(StringRef march) {
+  return march == "dav-920r1-vec" || march == "dav-920r1-cube";
+}
+
 void populateVPTOOpLoweringPatterns(VPTOTypeConverter &typeConverter, RewritePatternSet &patterns,
                                     LoweringState &state, StringRef march) {
   populateVPTOArithmeticPatterns(typeConverter, patterns, state);
@@ -301,6 +305,14 @@ VPTOEmissionOptions makeDeviceEmissionOptions(const VPTOEmissionOptions &baseOpt
       "+ATOMIC,+ArchV130,+AregRedefinable,+ArithmeticBf16,+AtomicForB8 ,"
       "+F8e4m3,+F8e5m2,+F8e8m0,+FFTSBlk,+Fp4e1m2x2,+Fp4e2m1x2,+LDExtRefine,"
       "+MOVX8,+SPR7bits,+SyncV,+dav-c310-cube";
+  constexpr llvm::StringLiteral kA6VecTargetFeatures =
+      "+ATOMIC,+AregRedefinable,+ArithmeticBf16,+AtomicForB8 ,"
+      "+F8e4m3,+F8e5m2,+F8e8m0,+FFTSBlk,+Fp4e1m2x2,+Fp4e2m1x2,+LDExtRefine,"
+      "+MOVX8,+SPR7bits,+SyncV,+dav-920r1-vec";
+  constexpr llvm::StringLiteral kA6CubeTargetFeatures =
+      "+ATOMIC,+AregRedefinable,+ArithmeticBf16,+AtomicForB8 ,"
+      "+F8e4m3,+F8e5m2,+F8e8m0,+FFTSBlk,+Fp4e1m2x2,+Fp4e2m1x2,+LDExtRefine,"
+      "+MOVX8,+SPR7bits,+SyncV,+dav-920r1-cube";
   if (isC220Target(baseOptions.march)) {
     const bool isVector = kind == FunctionKernelKind::Vector;
     options.march = isVector ? "dav-c220-vec" : "dav-c220-cube";
@@ -308,6 +320,13 @@ VPTOEmissionOptions makeDeviceEmissionOptions(const VPTOEmissionOptions &baseOpt
     options.defaultTargetCPU = options.march;
     options.defaultTargetFeatures =
         (isVector ? kC220VecTargetFeatures : kC220CubeTargetFeatures).str();
+  } else if (isA6Target(baseOptions.march)) {
+    const bool isVector = kind == FunctionKernelKind::Vector;
+    options.march = isVector ? "dav-920r1-vec" : "dav-920r1-cube";
+    options.aicoreArch = options.march;
+    options.defaultTargetCPU = options.march;
+    options.defaultTargetFeatures =
+        (isVector ? kA6VecTargetFeatures : kA6CubeTargetFeatures).str();
   } else if (kind == FunctionKernelKind::Vector) {
     options.march = "dav-c310-vec";
     options.aicoreArch = "dav-c310-vec";

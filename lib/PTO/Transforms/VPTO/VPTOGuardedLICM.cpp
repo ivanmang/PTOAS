@@ -257,7 +257,7 @@ static bool isA5VPTOModule(func::FuncOp func) {
   while (module != nullptr) {
     auto arch = module->getAttrOfType<StringAttr>("pto.target_arch");
     if (arch) {
-      return arch.getValue() == "a5";
+      return arch.getValue() == "a5" || arch.getValue() == "a6";
     }
     module = module->getParentOfType<ModuleOp>();
   }

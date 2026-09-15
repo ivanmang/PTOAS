@@ -139,8 +139,31 @@ static bool isA5ModuleTarget(ModuleOp module) {
   return false;
 }
 
+static bool isA6DeviceSpec(StringRef spec) {
+  return spec.starts_with("Ascend920") || spec.starts_with("dav_9201");
+}
+
+static bool isA6ModuleTarget(ModuleOp module) {
+  if (!module) {
+    return false;
+  }
+  if (auto arch = module->getAttrOfType<StringAttr>(kPTOTargetArchAttrName)) {
+    if (arch.getValue().equals_insensitive("a6")) {
+      return true;
+    }
+  }
+  if (auto spec = module->getAttrOfType<StringAttr>("pto.device-spec")) {
+    return isA6DeviceSpec(spec.getValue());
+  }
+  return false;
+}
+
 PTOArch mlir::pto::getTargetArch(ModuleOp module) {
-  if (isA5ModuleTarget(module)) {
+  // A6 is an A5 ISA superset for every existing verifier/alignment decision;
+  // the only A6-specific behavior (vcvt MODE_MERGING) is dispatched through
+  // isTargetArchA6() on the module target string, so fold A6 into the A5 path
+  // here instead of widening the PTOArch enum.
+  if (isA5ModuleTarget(module) || isA6ModuleTarget(module)) {
     return PTOArch::A5;
   }
 
@@ -185,6 +208,20 @@ bool mlir::pto::isTargetArchA3(Operation *op) {
 
 bool mlir::pto::isTargetArchA5(Operation *op) {
   return getTargetArch(op) == PTOArch::A5;
+}
+
+bool mlir::pto::isTargetArchA6(ModuleOp module) {
+  return isA6ModuleTarget(module);
+}
+
+bool mlir::pto::isTargetArchA6(Operation *op) {
+  if (!op) {
+    return false;
+  }
+  if (auto module = op->getParentOfType<ModuleOp>()) {
+    return isA6ModuleTarget(module);
+  }
+  return false;
 }
 
 constexpr int64_t kA5VectorLengthBytes = 256;

@@ -102,7 +102,8 @@ static std::string normalizePTOASArch(llvm::StringRef archValue) {
 }
 
 static bool isSupportedPTOASArch(llvm::StringRef archValue) {
-  return archValue == "a2" || archValue == "a3" || archValue == "a5";
+  return archValue == "a2" || archValue == "a3" || archValue == "a5" ||
+         archValue == "a6";
 }
 
 constexpr size_t kArchRegexCaptureGroupCount = 3;
@@ -141,7 +142,7 @@ static bool resolveTextInputArch(llvm::StringRef buffer, bool cliArchSpecified,
   if (cliArchSpecified) {
     if (!isSupportedPTOASArch(arch)) {
       llvm::errs() << "Error: invalid --pto-arch='" << mlir::pto::ptoTargetArch
-                   << "'. Expected 'a2', 'a3', or 'a5'.\n";
+                   << "'. Expected 'a2', 'a3', 'a5', or 'a6'.\n";
       return false;
     }
     return true;
@@ -183,8 +184,9 @@ parseTextualModule(std::unique_ptr<llvm::MemoryBuffer> inputBuffer,
   llvm::SourceMgr sourceMgr;
   sourceMgr.AddNewSourceBuffer(std::move(inputBuffer), llvm::SMLoc());
   mlir::pto::ScopedPTOParserTargetArch scopedParserArch(
-      &context, arch == "a5" ? mlir::pto::PTOParserTargetArch::A5
-                             : mlir::pto::PTOParserTargetArch::A3);
+      &context, (arch == "a5" || arch == "a6")
+                    ? mlir::pto::PTOParserTargetArch::A5
+                    : mlir::pto::PTOParserTargetArch::A3);
   ParserConfig parserConfig(&context);
   Block parsedBlock;
   LocationAttr sourceFileLoc = UnknownLoc::get(&context);
@@ -224,7 +226,7 @@ loadInputModule(std::unique_ptr<llvm::MemoryBuffer> inputBuffer,
     arch = normalizePTOASArch(mlir::pto::ptoTargetArch);
     if (cliArchSpecified && !isSupportedPTOASArch(arch)) {
       llvm::errs() << "Error: invalid --pto-arch='" << mlir::pto::ptoTargetArch
-                   << "'. Expected 'a2', 'a3', or 'a5'.\n";
+                   << "'. Expected 'a2', 'a3', 'a5', or 'a6'.\n";
       return {};
     }
     module = decodePTOBCModule(buffer, context);

@@ -148,7 +148,8 @@ static bool isA2A3Arch(llvm::StringRef arch) {
 
 static bool isSupportedPTOASTargetArch(llvm::StringRef arch) {
   std::string normalized = normalizeArch(arch);
-  return normalized == "a2" || normalized == "a3" || normalized == "a5";
+  return normalized == "a2" || normalized == "a3" || normalized == "a5" ||
+         normalized == "a6";
 }
 
 static std::optional<std::string> getModuleTargetArchAttr(ModuleOp module) {
@@ -835,6 +836,10 @@ buildVPTOEmissionOptions(const pto::CANNVersion &cannVersion,
   std::string arch = normalizeArch(targetArch);
   if (isA2A3Arch(arch)) {
     options.march = "dav-c220-vec";
+  } else if (arch == "a6") {
+    // A6 (dav-9201) vector core; the cube/vec split happens in
+    // makeDeviceEmissionOptions by kernel kind.
+    options.march = "dav-920r1-vec";
   }
   return options;
 }

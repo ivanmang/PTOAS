@@ -122,13 +122,16 @@ uint64_t mlir::pto::BF16x2Type::getPreferredAlignment(
 
 static VerifierTargetArch getVerifierTargetArch(Operation *op) {
   auto module = op ? op->getParentOfType<ModuleOp>() : ModuleOp();
-  if (isA5ModuleTarget(module)) {
+  if (isA5ModuleTarget(module) || isA6ModuleTarget(module)) {
     return VerifierTargetArch::A5;
   }
 
   if (auto archName = getVerifierArchName(op)) {
-    return archName->equals_insensitive("a5") ? VerifierTargetArch::A5
-                            : VerifierTargetArch::A2A3;
+    if (archName->equals_insensitive("a5") ||
+        archName->equals_insensitive("a6")) {
+      return VerifierTargetArch::A5;
+    }
+    return VerifierTargetArch::A2A3;
   }
 
   switch (getPTOParserTargetArch(op ? op->getContext() : nullptr)) {

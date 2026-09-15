@@ -166,8 +166,10 @@ PTOArch getTargetArch(ModuleOp module);
 PTOArch getTargetArch(Operation *op);
 bool isTargetArchA3(ModuleOp module);
 bool isTargetArchA5(ModuleOp module);
+bool isTargetArchA6(ModuleOp module);
 bool isTargetArchA3(Operation *op);
 bool isTargetArchA5(Operation *op);
+bool isTargetArchA6(Operation *op);
 
 enum class PTOParserTargetArch {
   Unspecified,
