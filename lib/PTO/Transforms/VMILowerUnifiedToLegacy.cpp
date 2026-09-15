@@ -357,10 +357,29 @@ static LogicalResult lowerVCvt(VMICvtOp op, OpBuilder &builder) {
     result = builder.create<VMIExtFOp>(loc, resultType, source).getResult();
   } else if (direction == "narrow_fp") {
     StringAttr roundingAttr = op.getRoundingAttr();
-    result = builder
-                 .create<VMITruncFOp>(loc, resultType, source, roundingAttr,
-                                     saturateAttr)
-            .getResult();
+    // Bridge bf16 → fp8 (e4m3/e5m2/hif8) through f32, matching the deployed
+    // CCE/TQuant pipeline. A direct bf16→fp8 vcvt is not selectable on-device
+    // (the A5 sim crashes on RV_VCVT_F2F BF162E4M3); widen to f32 first, then
+    // narrow f32→fp8 with the existing 4:1 PART_P0..P3 lowering.
+    if (srcElem.isBF16() && (pto::isPTOFloat8E4M3LikeType(dstElem) ||
+                             pto::isPTOFloat8E5M2LikeType(dstElem) ||
+                             pto::isPTOHiFloat8Type(dstElem))) {
+      auto srcVmiTy = cast<VMIVRegType>(op.getSource().getType());
+      Type f32VmiTy = VMIVRegType::get(
+          srcVmiTy.getContext(), srcVmiTy.getElementCount(),
+          builder.getF32Type(), srcVmiTy.getLayout());
+      Value widened =
+          builder.create<VMIExtFOp>(loc, f32VmiTy, source).getResult();
+      result = builder
+                   .create<VMITruncFOp>(loc, resultType, widened, roundingAttr,
+                                        saturateAttr)
+                   .getResult();
+    } else {
+      result = builder
+                   .create<VMITruncFOp>(loc, resultType, source, roundingAttr,
+                                        saturateAttr)
+                   .getResult();
+    }
   } else if (direction == "fptosi") {
     result = builder
             .create<VMIFPToSIOp>(loc, resultType, source,
