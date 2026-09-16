@@ -10,24 +10,37 @@
 
 namespace mlir::pto::detail {
 
-FailureOr<StringRef> buildCopyGmToUbCallee(MLIRContext *context, Type sourceType) {
+static std::string remapCopyElemForA6(StringRef elem) {
+  if (elem == "f32" || elem == "u32") return "s32";
+  if (elem == "f16" || elem == "bf16" || elem == "u16") return "s16";
+  if (elem == "u8") return "s8";
+  return elem.str();
+}
+
+FailureOr<StringRef> buildCopyGmToUbCallee(MLIRContext *context, Type sourceType, bool isA6) {
   auto ptrType = dyn_cast<pto::PtrType>(sourceType);
   if (!ptrType) {
     return failure();
   }
   Type elementType = ptrType.getElementType();
   if ((isa<IntegerType>(elementType) && cast<IntegerType>(elementType).getWidth() == kBits64) || elementType.isF64()) {
-    return StringAttr::get(context, "llvm.hivm.MOV.OUT.TO.UB.ALIGN.V2.s32.DV").getValue();
+    return StringAttr::get(context, isA6 ? "llvm.hivm.MOV.OUT.TO.UB.ALIGN.V2.s32.V920"
+                                        : "llvm.hivm.MOV.OUT.TO.UB.ALIGN.V2.s32.DV").getValue();
   }
   std::string elem = getCopyElementFragment(elementType);
   if (elem.empty()) {
     return failure();
   }
+  if (isA6) {
+    elem = remapCopyElemForA6(elem);
+    return StringAttr::get(context, "llvm.hivm.MOV.OUT.TO.UB.ALIGN.V2." + elem + ".V920").getValue();
+  }
   return StringAttr::get(context, "llvm.hivm.MOV.OUT.TO.UB.ALIGN.V2." + elem + ".DV").getValue();
 }
 
-StringRef buildCopyUbToGmCallee(MLIRContext *context) {
-  return StringAttr::get(context, "llvm.hivm.MOV.UB.TO.OUT.ALIGN.V2.DV").getValue();
+StringRef buildCopyUbToGmCallee(MLIRContext *context, bool isA6) {
+  return StringAttr::get(context, isA6 ? "llvm.hivm.MOV.UB.TO.OUT.ALIGN.V2.DV.V920"
+                                       : "llvm.hivm.MOV.UB.TO.OUT.ALIGN.V2.DV").getValue();
 }
 
 StringRef buildCopyUbToUbCallee(MLIRContext *context) {

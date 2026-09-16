@@ -361,10 +361,11 @@ public:
   LogicalResult matchAndRewrite(CopyOp op, typename CopyOp::Adaptor adaptor,
                                 ConversionPatternRewriter &rewriter) const override {
     FailureOr<StringRef> calleeName = failure();
+    const bool isA6 = isTargetArchA6(op);
     if constexpr (std::is_same_v<CopyOp, pto::CopyGmToUbufOp>) {
-      calleeName = buildCopyGmToUbCallee(op.getContext(), op.getSource().getType());
+      calleeName = buildCopyGmToUbCallee(op.getContext(), op.getSource().getType(), isA6);
     } else {
-      calleeName = buildCopyUbToGmCallee(op.getContext());
+      calleeName = buildCopyUbToGmCallee(op.getContext(), isA6);
     }
     if (failed(calleeName)) {
       return rewriter.notifyMatchFailure(op, "unsupported copy VPTO signature");
