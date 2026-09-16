@@ -325,6 +325,27 @@ static std::string resolveTargetCPU(llvm::Module &module,
   return getTargetCPU(fallback).str();
 }
 
+// Host-stub/repack arch for a VPTO fatobj. The device module carries its real
+// target-cpu (e.g. dav-920r1-vec, set by applyQueriedTargetAttrs); the host
+// stub needs the bare device-family arch (dav-920r1), mirroring how A5 uses the
+// bare dav-c310.
+static std::string resolveHostStubTargetCPU(llvm::Module *cubeModule,
+                                            llvm::Module *vectorModule) {
+  llvm::Module *deviceModule = vectorModule ? vectorModule : cubeModule;
+  if (!deviceModule) {
+    return "dav-c310";
+  }
+  std::string cpu = resolveTargetCPU(
+      *deviceModule, mlir::pto::ObjectEmissionDeviceTarget::Vector);
+  for (llvm::StringRef suffix : {"-vec", "-cube"}) {
+    if (llvm::StringRef(cpu).ends_with(suffix)) {
+      cpu.resize(cpu.size() - suffix.size());
+      break;
+    }
+  }
+  return cpu.empty() ? "dav-c310" : cpu;
+}
+
 class VPTOFatobjArtifacts {
 public:
   explicit VPTOFatobjArtifacts(mlir::pto::TempFileRegistry &tempFiles)
@@ -1173,7 +1194,7 @@ mlir::LogicalResult mlir::pto::emitFatobjLLVM(
     return failure();
   }
 
-  constexpr llvm::StringLiteral targetCPU = "dav-c310";
+  std::string targetCPU = resolveHostStubTargetCPU(cubeModule, vectorModule);
   if (!artifacts.compileHostStubToFatobj(toolchain, moduleId, targetCPU,
                                          outputPath, diagOS)) {
     return failure();
@@ -1250,7 +1271,7 @@ mlir::LogicalResult mlir::pto::emitFatobjLLVMWithRuntime(
   }
 
   std::string moduleId = sanitizeModuleId(outputFile.getFilename());
-  constexpr llvm::StringLiteral hostTargetCPU = "dav-c310";
+  std::string hostTargetCPU = resolveHostStubTargetCPU(cubeModule, vectorModule);
   if (!artifacts.compileHostStub(*toolchain, moduleId, hostTargetCPU, diagOS)) {
     return failure();
   }
