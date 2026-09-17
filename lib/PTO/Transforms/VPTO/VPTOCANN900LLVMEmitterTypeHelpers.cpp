@@ -217,6 +217,25 @@ FailureOr<StringRef> buildCANN900SignedModeTypedCallee(MLIRContext *context, Typ
       .getValue();
 }
 
+FailureOr<StringRef> buildA6VecScalarShiftCallee(MLIRContext *context, Type vectorType, bool shiftRight) {
+  Type elem = getElementTypeFromVectorLike(vectorType);
+  auto lanes = getElementCountFromVectorLike(vectorType);
+  auto intType = dyn_cast<IntegerType>(elem);
+  if (!intType || !lanes) {
+    return failure();
+  }
+  // dav-920r1 emits typed vec-scalar shift intrinsics (the untyped A5 overload
+  // `vshrs.u.x` / `vshls.u.x` has no selection on the A6 backend):
+  //   vshrs.v<lanes><u|s><bits>.logic.x  (unsigned element => logical shift right)
+  //   vshrs.v<lanes><u|s><bits>.arith.x  (signed element   => arithmetic shift right)
+  std::string sign = intType.isUnsigned() ? "u" : "s";
+  std::string kind = intType.isUnsigned() ? "logic" : "arith";
+  std::string name = "llvm.hivm." + std::string(shiftRight ? "vshrs" : "vshls") + ".v" +
+                     std::to_string(*lanes) + sign + std::to_string(intType.getWidth()) +
+                     "." + kind + ".x";
+  return StringAttr::get(context, name).getValue();
+}
+
 FailureOr<StringRef> buildCANN900WideningReductionCallee(MLIRContext *context, Type inputType, Type resultType,
                                                          StringRef stem, StringRef mode) {
   std::string inputVec = getCANN900VectorTypeFragment(inputType);

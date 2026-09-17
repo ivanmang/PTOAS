@@ -1305,10 +1305,22 @@ public:
   LogicalResult matchAndRewrite(VecScalarOp op, typename VecScalarOp::Adaptor adaptor,
                                 ConversionPatternRewriter &rewriter) const override {
     StringRef stem = getVecScalarMaskedStem<VecScalarOp>();
-    FailureOr<StringRef> calleeName =
-        usesSignedVecScalarCANN900Callee<VecScalarOp>()
-            ? buildCANN900SignedModeTypedCallee(op.getContext(), op.getResult().getType(), stem, "x")
-            : buildCANN900ModeTypedCallee(op.getContext(), op.getResult().getType(), stem, "x");
+    FailureOr<StringRef> calleeName;
+    if constexpr (std::is_same_v<VecScalarOp, pto::VshrsOp> || std::is_same_v<VecScalarOp, pto::VshlsOp>) {
+      if (isTargetArchA6(op)) {
+        calleeName = buildA6VecScalarShiftCallee(
+            op.getContext(), op.getResult().getType(),
+            std::is_same_v<VecScalarOp, pto::VshrsOp>);
+        if (failed(calleeName)) {
+          return rewriter.notifyMatchFailure(op, "unsupported A6 vec-scalar shift signature");
+        }
+      }
+    }
+    if (!succeeded(calleeName)) {
+      calleeName = usesSignedVecScalarCANN900Callee<VecScalarOp>()
+          ? buildCANN900SignedModeTypedCallee(op.getContext(), op.getResult().getType(), stem, "x")
+          : buildCANN900ModeTypedCallee(op.getContext(), op.getResult().getType(), stem, "x");
+    }
     if (failed(calleeName)) {
       return rewriter.notifyMatchFailure(op, "unsupported vec-scalar VPTO signature");
     }

@@ -685,14 +685,19 @@ FailureOr<Value> createPowerOfTwoRemainder(Location loc, Value value,
         .getResult();
   }
 
-  Value shiftScalar = createI16Constant(loc, *shift, rewriter);
-  Value quotient =
-      rewriter.create<VshrsOp>(loc, vectorType, value, shiftScalar, allMask)
+  // value % (2^n) == value & (2^n - 1) for non-negative lane indices; the
+  // AND form avoids vshrs (not selectable on dav-920r1-vec).
+  int64_t maskValue = modulus - 1;
+  FailureOr<Value> maskScalar = createScalarOffsetConstant(
+      loc, vectorType.getElementType(), maskValue, rewriter);
+  if (failed(maskScalar)) {
+    return failure();
+  }
+  Value maskVec =
+      rewriter.create<VdupOp>(loc, vectorType, *maskScalar, allMask,
+                              /*position=*/nullptr)
           .getResult();
-  Value base =
-      rewriter.create<VshlsOp>(loc, vectorType, quotient, shiftScalar, allMask)
-          .getResult();
-  return rewriter.create<VsubOp>(loc, vectorType, value, base, allMask)
+  return rewriter.create<VandOp>(loc, vectorType, value, maskVec, allMask)
       .getResult();
 }
 

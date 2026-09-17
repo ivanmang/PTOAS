@@ -362,6 +362,7 @@ std::string getCANN900SignednessFragment(Type elemType);
 FailureOr<StringRef> buildCANN900ModeTypedCallee(MLIRContext *context, Type vectorType, StringRef stem, StringRef mode);
 FailureOr<StringRef> buildCANN900SignedModeTypedCallee(MLIRContext *context, Type vectorType, StringRef stem,
                                                        StringRef mode);
+FailureOr<StringRef> buildA6VecScalarShiftCallee(MLIRContext *context, Type vectorType, bool shiftRight);
 FailureOr<StringRef> buildCANN900WideningReductionCallee(MLIRContext *context, Type inputType, Type resultType,
                                                          StringRef stem, StringRef mode);
 std::string getCANN900MemoryElementTypeFragment(Type type);
