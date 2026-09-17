@@ -224,15 +224,16 @@ FailureOr<StringRef> buildA6VecScalarShiftCallee(MLIRContext *context, Type vect
   if (!intType || !lanes) {
     return failure();
   }
-  // dav-920r1 emits typed vec-scalar shift intrinsics (the untyped A5 overload
-  // `vshrs.u.x` / `vshls.u.x` has no selection on the A6 backend):
-  //   vshrs.v<lanes><u|s><bits>.logic.x  (unsigned element => logical shift right)
-  //   vshrs.v<lanes><u|s><bits>.arith.x  (signed element   => arithmetic shift right)
+  // dav-920r1 selects the typed scalar-shift form with an explicit unsigned
+  // scalar width — the .logic/.arith.x forms have no SelectionDAG pattern here:
+  //   vshrs.v<lanes><u|s><bits>u<scalarbits>.z
+  // scalar width = element width, capped at 32 (64-bit elements use a u32 shift).
   std::string sign = intType.isUnsigned() ? "u" : "s";
-  std::string kind = intType.isUnsigned() ? "logic" : "arith";
+  int64_t elemBits = intType.getWidth();
+  int64_t scalarBits = elemBits > 32 ? 32 : elemBits;
   std::string name = "llvm.hivm." + std::string(shiftRight ? "vshrs" : "vshls") + ".v" +
-                     std::to_string(*lanes) + sign + std::to_string(intType.getWidth()) +
-                     "." + kind + ".x";
+                     std::to_string(*lanes) + sign + std::to_string(elemBits) +
+                     "u" + std::to_string(scalarBits) + ".z";
   return StringAttr::get(context, name).getValue();
 }
 
