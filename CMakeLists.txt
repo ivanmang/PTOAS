@@ -46,7 +46,7 @@ if((NOT DEFINED MLIR_DIR OR MLIR_DIR STREQUAL "")
       "MLIR package directory derived from LLVM_BUILD_DIR")
 endif()
 
-project(ptoas VERSION 0.68)
+project(ptoas VERSION 0.69)
 
 init_cann_project()
 add_cann_target_options()
