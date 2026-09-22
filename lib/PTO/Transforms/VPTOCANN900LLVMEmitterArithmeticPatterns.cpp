@@ -1377,6 +1377,14 @@ public:
       return rewriter.notifyMatchFailure(op, "unexpected converted reduction operand types");
     }
 
+    // A6 lowers vcgmax/vcgmin through the v2 + vpackv2 pair (mirrors the
+    // __VF_VCG_V920 wrapper: tmp = vcgmaxv2(src, mask); dst = vpackv2(tmp)).
+    if constexpr (std::is_same_v<ReductionOp, pto::VcgmaxOp> || std::is_same_v<ReductionOp, pto::VcgminOp>) {
+      if (isTargetArchA6(op)) {
+        return lowerA6CrossGroupReduction(op, input, mask, resultType, rewriter);
+      }
+    }
+
     auto call = rewriter.create<func::CallOp>(op.getLoc(), *calleeName, TypeRange{resultType}, ValueRange{input, mask});
     state.plannedDecls.push_back(PlannedDecl{calleeName->str(), call.getCalleeType()});
     rewriter.replaceOp(op, call.getResults());
@@ -1384,6 +1392,23 @@ public:
   }
 
 private:
+  LogicalResult lowerA6CrossGroupReduction(ReductionOp op, Value input, Value mask, Type resultType,
+                                           ConversionPatternRewriter &rewriter) const {
+    const bool isMax = std::is_same_v<ReductionOp, pto::VcgmaxOp>;
+    StringRef v2stem = isMax ? "vcgmaxv2" : "vcgminv2";
+    FailureOr<StringRef> v2Name = buildA6TypedReductionCallee(op.getContext(), op.getResult().getType(), v2stem);
+    FailureOr<StringRef> packName = buildA6TypedReductionCallee(op.getContext(), op.getResult().getType(), "vpackv2");
+    if (failed(v2Name) || failed(packName)) {
+      return rewriter.notifyMatchFailure(op, "unsupported A6 cross-group reduction signature");
+    }
+    auto v2call = rewriter.create<func::CallOp>(op.getLoc(), *v2Name, TypeRange{resultType}, ValueRange{input, mask});
+    state.plannedDecls.push_back(PlannedDecl{v2Name->str(), v2call.getCalleeType()});
+    auto packcall = rewriter.create<func::CallOp>(op.getLoc(), *packName, TypeRange{resultType}, ValueRange{v2call.getResult(0)});
+    state.plannedDecls.push_back(PlannedDecl{packName->str(), packcall.getCalleeType()});
+    rewriter.replaceOp(op, packcall.getResults());
+    return success();
+  }
+
   LoweringState &state;
 };
 

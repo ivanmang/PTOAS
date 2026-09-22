@@ -237,6 +237,28 @@ FailureOr<StringRef> buildA6VecScalarShiftCallee(MLIRContext *context, Type vect
   return StringAttr::get(context, name).getValue();
 }
 
+FailureOr<StringRef> buildA6TypedReductionCallee(MLIRContext *context, Type vectorType, StringRef stem) {
+  Type elem = getElementTypeFromVectorLike(vectorType);
+  auto lanes = getElementCountFromVectorLike(vectorType);
+  if (!lanes) {
+    return failure();
+  }
+  // dav-920r1 typed reduction forms: <stem>.v<lanes><s|u><bits>.x  (int) or
+  // <stem>.v<lanes>f16|f32.x  (float). e.g. vcgmaxv2.v128u16.x, vpackv2.v128u16.x.
+  std::string frag;
+  if (auto intType = dyn_cast<IntegerType>(elem)) {
+    frag = (intType.isUnsigned() ? "u" : "s") + std::to_string(intType.getWidth());
+  } else if (elem.isF16()) {
+    frag = "f16";
+  } else if (elem.isF32()) {
+    frag = "f32";
+  } else {
+    return failure();
+  }
+  std::string name = "llvm.hivm." + stem.str() + ".v" + std::to_string(*lanes) + frag + ".x";
+  return StringAttr::get(context, name).getValue();
+}
+
 FailureOr<StringRef> buildCANN900WideningReductionCallee(MLIRContext *context, Type inputType, Type resultType,
                                                          StringRef stem, StringRef mode) {
   std::string inputVec = getCANN900VectorTypeFragment(inputType);
