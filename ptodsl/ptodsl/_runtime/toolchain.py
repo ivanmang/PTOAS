@@ -157,19 +157,19 @@ def aicore_arch_for_kernel_kind(kernel_kind: str | None, target_arch: str) -> st
     if kernel_kind is None:
         if target in {"a2", "a3"}:
             return "dav-c220"
-        if target == "a6":
+        if target in {"a6", "v200", "v926"}:
             return "dav-920r1"
         return "dav-c310"
     if kernel_kind == "vector":
         if target in {"a2", "a3"}:
             return "dav-c220-vec"
-        if target == "a6":
+        if target in {"a6", "v200", "v926"}:
             return "dav-920r1-vec"
         return "dav-c310-vec"
     if kernel_kind == "cube":
         if target in {"a2", "a3"}:
             return "dav-c220-cube"
-        if target == "a6":
+        if target in {"a6", "v200", "v926"}:
             return "dav-920r1-cube"
         return "dav-c310-cube"
     raise ValueError(f"unsupported kernel_kind for native build: {kernel_kind!r}")

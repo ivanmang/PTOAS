@@ -140,7 +140,9 @@ static bool isA5ModuleTarget(ModuleOp module) {
 }
 
 static bool isA6DeviceSpec(StringRef spec) {
-  return spec.starts_with("Ascend920") || spec.starts_with("dav_9201");
+  return spec.starts_with("Ascend920") || spec.starts_with("Ascend926") ||
+         spec.starts_with("dav_9201") || spec.starts_with("dav_926") ||
+         spec.starts_with("dav_9301");
 }
 
 static bool isA6ModuleTarget(ModuleOp module) {
@@ -148,7 +150,9 @@ static bool isA6ModuleTarget(ModuleOp module) {
     return false;
   }
   if (auto arch = module->getAttrOfType<StringAttr>(kPTOTargetArchAttrName)) {
-    if (arch.getValue().equals_insensitive("a6")) {
+    if (arch.getValue().equals_insensitive("a6") ||
+        arch.getValue().equals_insensitive("v200") ||
+        arch.getValue().equals_insensitive("v926")) {
       return true;
     }
   }

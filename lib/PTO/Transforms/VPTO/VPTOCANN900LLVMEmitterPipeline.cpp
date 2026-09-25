@@ -15,7 +15,8 @@ static bool isC220Target(StringRef march) {
 }
 
 static bool isA6Target(StringRef march) {
-  return march == "dav-920r1-vec" || march == "dav-920r1-cube";
+  return march == "dav-920r1-vec" || march == "dav-920r1-cube" ||
+         march == "dav-926-vec" || march == "dav-926-cube";
 }
 
 void populateVPTOOpLoweringPatterns(VPTOTypeConverter &typeConverter, RewritePatternSet &patterns,
