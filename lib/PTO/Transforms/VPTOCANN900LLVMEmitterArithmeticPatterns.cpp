@@ -1338,6 +1338,22 @@ public:
       return rewriter.notifyMatchFailure(op, "unexpected converted vec-scalar VPTO operand types");
     }
 
+    // A6 .z shift: the VMI shift scalar is hardcoded i16 (VMIOps.td VMI_VecScalarOp
+    // I16), but the .z intrinsic's scalar width = element width (capped at 32).
+    // Widen the scalar to match, else bisheng rejects the declare with
+    // "Intrinsic has incorrect argument type" (u32 elements need an i32 shift).
+    if constexpr (std::is_same_v<VecScalarOp, pto::VshrsOp> || std::is_same_v<VecScalarOp, pto::VshlsOp>) {
+      if (isTargetArchA6(op)) {
+        if (auto elemInt = dyn_cast<IntegerType>(getElementTypeFromVectorLike(op.getResult().getType()))) {
+          int64_t scalarBits = elemInt.getWidth() > 32 ? 32 : elemInt.getWidth();
+          Type targetScalarTy = IntegerType::get(op.getContext(), scalarBits);
+          if (Value widened = castIntegerLikeTo(op, scalar, targetScalarTy)) {
+            scalar = widened;
+          }
+        }
+      }
+    }
+
     auto call =
         rewriter.create<func::CallOp>(op.getLoc(), *calleeName, TypeRange{resultType}, ValueRange{input, scalar, mask});
     state.plannedDecls.push_back(PlannedDecl{calleeName->str(), call.getCalleeType()});
